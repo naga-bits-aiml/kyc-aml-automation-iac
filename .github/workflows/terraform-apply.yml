@@ -5,6 +5,9 @@ on:
   push:
     branches: [ main ] # optional
 
+permissions:
+  contents: read
+
 jobs:
   terraform:
     runs-on: ubuntu-latest
@@ -32,11 +35,16 @@ jobs:
       - name: Terraform Init
         working-directory: ./terraform
         run: terraform init
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Terraform Apply
         working-directory: ./terraform
         run: terraform apply -auto-approve
         env:
-          TF_VAR_gcp_project: ${{ secrets.GCP_PROJECT_ID }}
-          TF_VAR_gcp_region: us-central1
-          TF_VAR_gcp_zone: us-central1-a
+          TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
+          TF_VAR_region: us-central1
+          TF_VAR_zone: us-central1-a
+          TF_VAR_vm_name: "kyc-onboarding-vm"
+          TF_VAR_machine_type: "e2-micro"
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_SERVICE_ACCOUNT }}
