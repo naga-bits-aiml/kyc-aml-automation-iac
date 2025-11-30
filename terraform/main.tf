@@ -7,6 +7,8 @@ resource "google_compute_firewall" "allow_ssh" {
     ports    = ["22"]
   }
 
+  source_ranges = var.allowed_ssh_source_ranges
+
   target_tags = ["kyc-ssh"]
 }
 
@@ -18,6 +20,8 @@ resource "google_compute_firewall" "allow_web" {
     protocol = "tcp"
     ports    = ["80", "443"]
   }
+
+  source_ranges = var.allowed_web_source_ranges
 
   target_tags = ["kyc-web"]
 }
