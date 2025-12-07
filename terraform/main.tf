@@ -39,9 +39,10 @@ resource "google_compute_instance" "vm" {
     }
   }
 
-  metadata = {
-    startup-script = file("${path.module}/startup.sh")
-  }
+  metadata = merge(var.instance_metadata, {
+    INSTALL_TESSERACT = var.install_tesseract ? "1" : "0",
+    "startup-script" = file("${path.module}/startup.sh")
+  })
 
   network_interface {
     network = "default"

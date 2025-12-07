@@ -35,3 +35,15 @@ variable "allowed_web_source_ranges" {
   description = "List of CIDR blocks allowed to reach HTTP/HTTPS (ports 80,443)."
   default     = ["0.0.0.0/0"]
 }
+
+variable "install_tesseract" {
+  type        = bool
+  description = "Whether to install Tesseract OCR via the instance startup script. Can be controlled from Terraform."
+  default     = false
+}
+
+variable "instance_metadata" {
+  type        = map(string)
+  description = "Optional metadata map to attach to the instance. Values are merged with startup-script and INSTALL_TESSERACT."
+  default     = {}
+}
