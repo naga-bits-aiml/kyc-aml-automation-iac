@@ -7,6 +7,7 @@ resource "google_compute_firewall" "allow_ssh" {
     ports    = ["22"]
   }
 
+  # Default is empty to avoid world-open SSH; provide explicit admin CIDRs via allowed_ssh_source_ranges.
   source_ranges = var.allowed_ssh_source_ranges
 
   target_tags = ["kyc-ssh"]

@@ -19,6 +19,7 @@ This repository contains Terraform and GitHub Actions configuration to provision
 **Startup script**
 - `terraform/startup.sh` is executed by the instance on first boot. It installs packages idempotently and non‑interactively, adds common users to the `docker` group, configures UFW, and enables services.
 - To enable optional Tesseract OCR installation, pass metadata/variable `INSTALL_TESSERACT=1` (see Variables section).
+- Use a secured SSH entry point (Cloud IAP, bastion host, or a narrow IP allowlist) instead of exposing SSH to the internet.
 
 ---
 
@@ -43,10 +44,17 @@ The VM startup script installs a set of developer tools and runtime dependencies
 - `terraform/variables.tf` defines the variables used by the configuration. Important variables:
 	- `project_id` — GCP project id (default: `kyc-aml-automation` in this repo)
 	- `region`, `zone` — GCP location values
-	- `vm_name` — name of the compute instance
-	- `machine_type` — VM machine type
-	- `allowed_ssh_source_ranges` / `allowed_web_source_ranges` — lists of CIDRs allowed to reach SSH and web ports (defaults are currently `0.0.0.0/0` — change for production)
-	- `instance_metadata` — optional metadata map you can provide; add `{ INSTALL_TESSERACT = "1" }` to install Tesseract via startup script
+        - `vm_name` — name of the compute instance
+        - `machine_type` — VM machine type
+- `allowed_ssh_source_ranges` — CIDRs allowed to reach SSH. Default is empty; you must supply admin CIDRs and keep personal IPs in a local `terraform.tfvars` (do not change the repository default). `0.0.0.0/0` is rejected unless you set `allowed_ssh_worldwide_override=true`.
+- `allowed_ssh_worldwide_override` — opt-out flag to permit `0.0.0.0/0` in `allowed_ssh_source_ranges` for exceptional cases.
+- `allowed_web_source_ranges` — lists of CIDRs allowed to reach HTTP/HTTPS (default: `0.0.0.0/0`).
+- `instance_metadata` — optional metadata map you can provide; add `{ INSTALL_TESSERACT = "1" }` to install Tesseract via startup script
+
+**Handling laptops or locations with changing IPs**
+- Prefer Cloud IAP (identity-aware proxy) or a bastion host with a static egress IP so you do not have to open SSH to the internet. Keep `allowed_ssh_source_ranges` empty or narrowly scoped, and connect with `gcloud compute ssh --tunnel-through-iap`.
+- If you must connect directly and your ISP IP changes, add your current public IP as a `/32` in `allowed_ssh_source_ranges` before each session (e.g., update `terraform.tfvars` with the latest `curl ifconfig.me` or a trusted IP lookup site such as https://whatismyipaddress.com/). Avoid committing personal IPs to version control; keep them in local `terraform.tfvars`.
+- If your IP changes frequently, prefer Cloud IAP or use a VPN with a stable egress address so you can allowlist the VPN’s CIDR once and connect through it from wherever you are.
 
 Set variables by one of the methods below (local or CI):
 - `terraform.tfvars` file in the `terraform/` directory (recommended for local convenience; do not commit secrets)
@@ -80,9 +88,10 @@ Notes:
 
 **Security & production recommendations**
 - Do NOT leave `allowed_ssh_source_ranges` as `0.0.0.0/0` for production. Limit SSH to admin IPs or use Cloud IAP / bastion host.
+- The Terraform variable validation rejects `0.0.0.0/0` for SSH by default; if you must temporarily allow it, set `allowed_ssh_worldwide_override=true` explicitly.
 - Consider removing `prevent_destroy` lifecycle only if you intend to allow destroy operations in CI.
 - Use Terraform import to bring existing VMs into state instead of letting the configuration create duplicates. Example:
-	```bash
+        ```bash
 	terraform import google_compute_instance.vm projects/<project-id>/zones/<zone>/instances/<name>
 	```
 
