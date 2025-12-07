@@ -27,7 +27,8 @@ variable "machine_type" {
 variable "allowed_ssh_source_ranges" {
   type        = list(string)
   description = "List of CIDR blocks allowed to reach SSH (port 22). Avoid 0.0.0.0/0 for production."
-  default     = []
+  # Default allows SSH only through Cloud IAP TCP forwarding (35.235.240.0/20)
+  default     = ["35.235.240.0/20"]
 
   validation {
     condition     = var.allowed_ssh_worldwide_override || !contains(var.allowed_ssh_source_ranges, "0.0.0.0/0")
