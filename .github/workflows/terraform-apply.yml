@@ -38,6 +38,52 @@ jobs:
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
+      - name: Terraform Import (if needed)
+        working-directory: ./terraform
+        run: |
+          set +e  # don't exit on error; import may not be needed
+          
+          PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+          ZONE="us-central1-a"
+          VM_NAME="kyc-onboarding-vm"
+          
+          echo "Checking if firewall rules and VM need to be imported..."
+          
+          # Import firewall rules if they exist but are not in state
+          if terraform state show google_compute_firewall.allow_ssh >/dev/null 2>&1; then
+            echo "Firewall allow_ssh already in state"
+          else
+            echo "Importing google_compute_firewall.allow_ssh"
+            terraform import google_compute_firewall.allow_ssh kyc-allow-ssh || true
+          fi
+          
+          if terraform state show google_compute_firewall.allow_web >/dev/null 2>&1; then
+            echo "Firewall allow_web already in state"
+          else
+            echo "Importing google_compute_firewall.allow_web"
+            terraform import google_compute_firewall.allow_web kyc-allow-web || true
+          fi
+          
+          # Import VM if it exists but is not in state
+          if terraform state show google_compute_instance.vm >/dev/null 2>&1; then
+            echo "VM already in state"
+          else
+            echo "Importing google_compute_instance.vm"
+            terraform import "google_compute_instance.vm" "projects/$PROJECT_ID/zones/$ZONE/instances/$VM_NAME" || true
+          fi
+          
+          set -e  # re-enable error exit
+        env:
+          TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Terraform Plan
+        working-directory: ./terraform
+        run: terraform plan -input=false
+        env:
+          TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
       - name: Terraform Apply
         working-directory: ./terraform
         run: terraform apply -auto-approve
