@@ -46,13 +46,13 @@ The VM startup script installs a set of developer tools and runtime dependencies
 	- `region`, `zone` — GCP location values
         - `vm_name` — name of the compute instance
         - `machine_type` — VM machine type
-- `allowed_ssh_source_ranges` — CIDRs allowed to reach SSH. Default is empty; you must supply admin CIDRs and keep personal IPs in a local `terraform.tfvars` (do not change the repository default). `0.0.0.0/0` is rejected unless you set `allowed_ssh_worldwide_override=true`.
+- `allowed_ssh_source_ranges` — CIDRs allowed to reach SSH. Defaults include the Cloud IAP TCP forwarding range `35.235.240.0/20` **and** Cloud Shell egress `35.235.0.0/16` so you can connect either with `gcloud compute ssh --tunnel-through-iap` or directly from Cloud Shell without editing CIDRs. Adjust to add your admin CIDRs and keep personal IPs in a local `terraform.tfvars` (do not change the repository default). `0.0.0.0/0` is rejected unless you set `allowed_ssh_worldwide_override=true`.
 - `allowed_ssh_worldwide_override` — opt-out flag to permit `0.0.0.0/0` in `allowed_ssh_source_ranges` for exceptional cases.
 - `allowed_web_source_ranges` — lists of CIDRs allowed to reach HTTP/HTTPS (default: `0.0.0.0/0`).
 - `instance_metadata` — optional metadata map you can provide; add `{ INSTALL_TESSERACT = "1" }` to install Tesseract via startup script
 
 **Handling laptops or locations with changing IPs**
-- Prefer Cloud IAP (identity-aware proxy) or a bastion host with a static egress IP so you do not have to open SSH to the internet. Keep `allowed_ssh_source_ranges` empty or narrowly scoped, and connect with `gcloud compute ssh --tunnel-through-iap`.
+- Prefer Cloud IAP (identity-aware proxy) or a bastion host with a static egress IP so you do not have to open SSH to the internet. The default `allowed_ssh_source_ranges` already allows the Cloud IAP TCP forwarding range, so connect with `gcloud compute ssh --tunnel-through-iap`. If you are in Cloud Shell, you can also connect directly without extra flags because the Cloud Shell egress range `35.235.0.0/16` is allowlisted by default.
 - If you must connect directly and your ISP IP changes, add your current public IP as a `/32` in `allowed_ssh_source_ranges` before each session (e.g., update `terraform.tfvars` with the latest `curl ifconfig.me` or a trusted IP lookup site such as https://whatismyipaddress.com/). Avoid committing personal IPs to version control; keep them in local `terraform.tfvars`.
 - If your IP changes frequently, prefer Cloud IAP or use a VPN with a stable egress address so you can allowlist the VPN’s CIDR once and connect through it from wherever you are.
 
