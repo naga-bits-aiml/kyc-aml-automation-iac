@@ -26,13 +26,13 @@ variable "machine_type" {
 
 variable "allowed_ssh_source_ranges" {
   type        = list(string)
-  description = "List of CIDR blocks allowed to reach SSH (port 22). Avoid 0.0.0.0/0 for production."
-  # Default allows SSH only through Cloud IAP TCP forwarding (35.235.240.0/20)
-  default     = ["35.235.240.0/20"]
+  description = "List of CIDR blocks allowed to reach SSH (port 22). Defaults open for initial setup; tighten to your laptop / VPN CIDRs later."
+  # Default is world-open for ease of first connection; override with a narrow list once you know your IP.
+  default     = ["0.0.0.0/0"]
 
   validation {
     condition     = var.allowed_ssh_worldwide_override || !contains(var.allowed_ssh_source_ranges, "0.0.0.0/0")
-    error_message = "allowed_ssh_source_ranges cannot include 0.0.0.0/0 unless allowed_ssh_worldwide_override is set to true."
+    error_message = "Set allowed_ssh_worldwide_override=true to permit 0.0.0.0/0, or provide a restricted list of CIDRs."
   }
 }
 
@@ -44,8 +44,8 @@ variable "allowed_web_source_ranges" {
 
 variable "allowed_ssh_worldwide_override" {
   type        = bool
-  description = "Opt-out flag to permit 0.0.0.0/0 in allowed_ssh_source_ranges for exceptional cases."
-  default     = false
+  description = "Flag that controls whether 0.0.0.0/0 is permitted in allowed_ssh_source_ranges (keeps validation togglable)."
+  default     = true
 }
 
 variable "install_tesseract" {

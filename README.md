@@ -13,13 +13,13 @@ This repository contains Terraform and GitHub Actions configuration to provision
 
 **High-level resources created**
 - VPC default network (uses existing default network)
-- Firewall rules for SSH and HTTP/HTTPS (configurable `source_ranges`)
+- Firewall rules for SSH and HTTP/HTTPS (configurable `source_ranges`; SSH defaults open for initial ease)
 - A single `google_compute_instance` VM with a startup script that installs developer tooling (Python, pip, venv, git, Docker, Docker Compose plugin, build tools, curl/wget; optional Tesseract)
 
 **Startup script**
 - `terraform/startup.sh` is executed by the instance on first boot. It installs packages idempotently and non‑interactively, adds common users to the `docker` group, configures UFW, and enables services.
 - To enable optional Tesseract OCR installation, pass metadata/variable `INSTALL_TESSERACT=1` (see Variables section).
-- Use a secured SSH entry point (Cloud IAP, bastion host, or a narrow IP allowlist) instead of exposing SSH to the internet.
+- Use a secured SSH entry point (Cloud IAP, bastion host, or a narrow IP allowlist) instead of exposing SSH to the internet once setup is complete.
 
 ---
 
@@ -46,13 +46,13 @@ The VM startup script installs a set of developer tools and runtime dependencies
 	- `region`, `zone` — GCP location values
         - `vm_name` — name of the compute instance
         - `machine_type` — VM machine type
-- `allowed_ssh_source_ranges` — CIDRs allowed to reach SSH. Default is the Cloud IAP TCP forwarding range `35.235.240.0/20` so you can connect via `gcloud compute ssh --tunnel-through-iap`; adjust to add your admin CIDRs and keep personal IPs in a local `terraform.tfvars` (do not change the repository default). `0.0.0.0/0` is rejected unless you set `allowed_ssh_worldwide_override=true`.
-- `allowed_ssh_worldwide_override` — opt-out flag to permit `0.0.0.0/0` in `allowed_ssh_source_ranges` for exceptional cases.
+- `allowed_ssh_source_ranges` — CIDRs allowed to reach SSH. Default is `0.0.0.0/0` for easy first-time access from VS Code / laptops on the internet. **Tighten this after initial bootstrap** by setting it to your laptop `/32` or VPN CIDRs in a local `terraform.tfvars`.
+- `allowed_ssh_worldwide_override` — toggle used by the SSH variable validation; defaults to `true` so the permissive `0.0.0.0/0` value is allowed, but set it to `false` if you want Terraform to enforce a restricted list only.
 - `allowed_web_source_ranges` — lists of CIDRs allowed to reach HTTP/HTTPS (default: `0.0.0.0/0`).
 - `instance_metadata` — optional metadata map you can provide; add `{ INSTALL_TESSERACT = "1" }` to install Tesseract via startup script
 
 **Handling laptops or locations with changing IPs**
-- Prefer Cloud IAP (identity-aware proxy) or a bastion host with a static egress IP so you do not have to open SSH to the internet. The default `allowed_ssh_source_ranges` already allows the Cloud IAP TCP forwarding range, so connect with `gcloud compute ssh --tunnel-through-iap`.
+- Prefer Cloud IAP (identity-aware proxy) or a bastion host with a static egress IP so you do not have to keep SSH open to the internet. After first login, update `allowed_ssh_source_ranges` to a narrow list and/or set `allowed_ssh_worldwide_override=false` to force it.
 - If you must connect directly and your ISP IP changes, add your current public IP as a `/32` in `allowed_ssh_source_ranges` before each session (e.g., update `terraform.tfvars` with the latest `curl ifconfig.me` or a trusted IP lookup site such as https://whatismyipaddress.com/). Avoid committing personal IPs to version control; keep them in local `terraform.tfvars`.
 - If your IP changes frequently, prefer Cloud IAP or use a VPN with a stable egress address so you can allowlist the VPN’s CIDR once and connect through it from wherever you are.
 
@@ -68,7 +68,7 @@ region = "us-central1"
 zone = "us-central1-a"
 vm_name = "kyc-onboarding-vm"
 machine_type = "e2-micro"
-allowed_ssh_source_ranges = ["203.0.113.5/32"]
+allowed_ssh_source_ranges = ["203.0.113.5/32"] # replace with your laptop / VPN CIDR once you know it
 instance_metadata = { INSTALL_TESSERACT = "1" }
 ```
 
@@ -88,7 +88,7 @@ Notes:
 
 **Security & production recommendations**
 - Do NOT leave `allowed_ssh_source_ranges` as `0.0.0.0/0` for production. Limit SSH to admin IPs or use Cloud IAP / bastion host.
-- The Terraform variable validation rejects `0.0.0.0/0` for SSH by default; if you must temporarily allow it, set `allowed_ssh_worldwide_override=true` explicitly.
+- Flip `allowed_ssh_worldwide_override=false` to have Terraform enforce that you provide restricted CIDRs (and block `0.0.0.0/0`).
 - Consider removing `prevent_destroy` lifecycle only if you intend to allow destroy operations in CI.
 - Use Terraform import to bring existing VMs into state instead of letting the configuration create duplicates. Example:
         ```bash
