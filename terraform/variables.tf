@@ -14,9 +14,16 @@ variable "zone" {
   default     = "us-central1-a"
 }
 
-variable "vm_name" {
+variable "kyc_onboarding_vm_name" {
   type        = string
+  description = "Name of the KYC onboarding VM"
   default     = "kyc-onboarding-vm"
+}
+
+variable "kyc_web_agent_vm_name" {
+  type        = string
+  description = "Name of the KYC web agent VM"
+  default     = "kyc-web-agent-vm"
 }
 
 variable "machine_type" {
