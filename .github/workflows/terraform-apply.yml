@@ -38,41 +38,20 @@ jobs:
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      - name: Terraform Import (if needed)
+      - name: Terraform Import (graceful)
         working-directory: ./terraform
         run: |
-          set +e  # don't exit on error; import may not be needed
-          
           PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
           ZONE="us-central1-a"
-          VM_NAME="kyc-onboarding-vm"
           
-          echo "Checking if firewall rules and VM need to be imported..."
+          # Import resources - failures are ignored (already in state or don't exist)
+          terraform import google_compute_firewall.allow_ssh kyc-allow-ssh 2>/dev/null || true
+          terraform import google_compute_firewall.allow_web kyc-allow-web 2>/dev/null || true
+          terraform import google_compute_instance.kyc_onboarding_vm projects/$PROJECT_ID/zones/$ZONE/instances/kyc-onboarding-vm 2>/dev/null || true
+          terraform import google_compute_instance.kyc_web_agent_vm projects/$PROJECT_ID/zones/$ZONE/instances/kyc-web-agent-vm 2>/dev/null || true
+          terraform import google_compute_instance_group.kyc_instance_group projects/$PROJECT_ID/zones/$ZONE/instanceGroups/kyc-instance-group 2>/dev/null || true
           
-          # Import firewall rules if they exist but are not in state
-          if terraform state show google_compute_firewall.allow_ssh >/dev/null 2>&1; then
-            echo "Firewall allow_ssh already in state"
-          else
-            echo "Importing google_compute_firewall.allow_ssh"
-            terraform import google_compute_firewall.allow_ssh kyc-allow-ssh || true
-          fi
-          
-          if terraform state show google_compute_firewall.allow_web >/dev/null 2>&1; then
-            echo "Firewall allow_web already in state"
-          else
-            echo "Importing google_compute_firewall.allow_web"
-            terraform import google_compute_firewall.allow_web kyc-allow-web || true
-          fi
-          
-          # Import VM if it exists but is not in state
-          if terraform state show google_compute_instance.vm >/dev/null 2>&1; then
-            echo "VM already in state"
-          else
-            echo "Importing google_compute_instance.vm"
-            terraform import "google_compute_instance.vm" "projects/$PROJECT_ID/zones/$ZONE/instances/$VM_NAME" || true
-          fi
-          
-          set -e  # re-enable error exit
+          echo "Import step complete (failures ignored)"
         env:
           TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
           GOOGLE_CREDENTIALS: ${{ secrets.GCP_SERVICE_ACCOUNT }}
